@@ -41,7 +41,7 @@ public class CalamityScheduler {
 
   private static final String WRITE_ALIAS = "calamity-write";
 
-  @Scheduled(fixedRate = 60000) // 1분마다 실행
+  //@Scheduled(fixedRate = 60000) // 1분마다 실행
   public void fetchAndIndex() {
     System.out.println("scheduler start");
     String startDate = repository.findFirstByOrderByModifiedDateDesc()
