@@ -1,6 +1,10 @@
 package focandlol.calamity.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.analysis.Analyzer;
 import co.elastic.clients.elasticsearch._types.analysis.CustomAnalyzer;
 import co.elastic.clients.elasticsearch._types.analysis.EdgeNGramTokenFilter;
@@ -10,31 +14,34 @@ import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.Tokenizer;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.indices.Alias;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import co.elastic.clients.elasticsearch.indices.PutIndexTemplateRequest;
 import co.elastic.clients.elasticsearch.indices.put_index_template.IndexTemplateMapping;
-import co.elastic.clients.json.JsonData;
+import co.elastic.clients.util.NamedValue;
 import focandlol.calamity.dto.CalamityDocument;
-import focandlol.calamity.repository.CalamityRepository;
 import focandlol.calamity.repository.CalamitySearchRepository;
 import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class ElasticManager {
+
   private final ElasticsearchClient client;
   private final CalamitySearchRepository calamityRepository;
 
-  public void createTemplate(String templateName, String indexPattern, String readAlias, String writeAlias) {
+  public void createTemplate(String templateName, String indexPattern, String readAlias,
+      String writeAlias) {
     try {
       // Tokenizer 설정
       Map<String, Tokenizer> tokenizerMap = Map.of(
@@ -152,11 +159,99 @@ public class ElasticManager {
     }
   }
 
-  public void save(){
+  public void save() {
     calamityRepository.save(CalamityDocument.builder()
         .id("12345611")
         .region("dddddd")
         .build());
+  }
+
+  public void add() throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("your-index-name")
+            .query(q -> q.matchAll(m -> m))
+            .aggregations("매출_카테고리별", a -> a
+                .terms(t -> t.field("category.keyword"))
+                .aggregations("총_매출", sa -> sa.sum(s -> s.field("amount")))
+            ),
+        Void.class
+    );
+
+    Map<String, Aggregate> aggregations = response.aggregations();
+    StringTermsAggregate categoryAgg = aggregations.get("매출_카테고리별").sterms();
+
+    for (StringTermsBucket bucket : categoryAgg.buckets().array()) {
+      String category = bucket.key().stringValue();
+      double totalAmount = bucket.aggregations()
+          .get("총_매출")
+          .sum()
+          .value();
+
+      System.out.println("카테고리: " + category + ", 총 매출: " + totalAmount);
+    }
+  }
+
+  public Map<String, Long> getRegionAggregation() throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-write")
+            .aggregations("시로_끝나는_지역_집계", a -> a
+                .filter(f -> f
+                    .wildcard(w -> w
+                        .field("regionList.keyword")
+                        .value("*시")
+                    )
+                )
+                .aggregations("지역별_집계", t -> t
+                    .terms(term -> term
+                        .field("regionList.keyword")
+                        .size(100)
+                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+                    )
+                )
+            ),
+        Void.class
+    );
+
+    return response.aggregations()
+        .get("시로_끝나는_지역_집계")
+        .filter()
+        .aggregations()
+        .get("지역별_집계")
+        .sterms()
+        .buckets()
+        .array()
+        .stream()
+        .filter(bucket -> bucket.key().stringValue().endsWith("시"))
+        .collect(Collectors.toMap(
+            bucket -> bucket.key().stringValue(),
+            StringTermsBucket::docCount,
+            (a, b) -> b,
+            LinkedHashMap::new
+        ));
+  }
+
+  public Map<String, Long> getCategoryAggregation() throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-write")
+            .aggregations("카테고리_집계", t -> t
+                .terms(term -> term
+                    .field("category.keyword")
+                    .size(100)
+                    .order(List.of(NamedValue.of("_count", SortOrder.Desc))))
+            )
+        , Void.class);
+
+    return response.aggregations().get("카테고리_집계")
+        .sterms()
+        .buckets()
+        .array()
+        .stream()
+        .collect(Collectors.toMap(
+            bucket -> bucket.key().stringValue(),
+            StringTermsBucket::docCount,
+            (a,b) -> b,
+            LinkedHashMap::new
+        ));
   }
 
 
