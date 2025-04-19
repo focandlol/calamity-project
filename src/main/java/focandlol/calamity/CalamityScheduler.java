@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,10 +45,7 @@ public class CalamityScheduler {
   //@Scheduled(fixedRate = 60000) // 1분마다 실행
   public void fetchAndIndex() {
     System.out.println("scheduler start");
-    String startDate = repository.findFirstByOrderByModifiedDateDesc()
-        .orElseThrow(() -> new RuntimeException("No calamity found")).getModifiedDate();
-
-    System.out.println("startDate: " + startDate);
+    String startDate = getStartDate();
     fetchSaveAndIndex(startDate, null); // 지역 전체
     System.out.println("scheduler end");
   }
@@ -151,6 +149,18 @@ public class CalamityScheduler {
   private List<String> parseRegionList(String region) {
     if (region == null || region.isBlank()) return List.of();
     return Arrays.asList(region.trim().split("\\s+"));
+  }
+
+  private String getStartDate() {
+    String startDate = repository.findFirstByOrderByModifiedDateDesc()
+        .orElseThrow(() -> new RuntimeException("No calamity found")).getModifiedDate();
+
+    System.out.println("startDate: " + startDate);
+    DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.n");
+    DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+    LocalDateTime dateTime = LocalDateTime.parse(startDate, inputFormatter);
+
+    return dateTime.format(outputFormatter);
   }
 }
 

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.core.index.AliasAction;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class FullIndexingScheduler {
 
   private final ElasticsearchOperations elasticsearchOperations;
@@ -36,6 +38,7 @@ public class FullIndexingScheduler {
     switchWriteAlias();
     indexAllDocuments();
     switchReadAlias();
+    log.info("full index com");
   }
 
   private void createNewIndexWithAlias() {
