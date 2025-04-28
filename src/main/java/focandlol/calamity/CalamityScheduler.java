@@ -45,7 +45,7 @@ public class CalamityScheduler {
 
   private static final String WRITE_ALIAS = "calamity-write";
 
-  @Scheduled(fixedRate = 60000) // 1분마다 실행
+  //@Scheduled(fixedRate = 120000) // 1분마다 실행
   @RedissonLock(prefix = "indexing", leaseTime = -1)
   public void fetchAndIndex() {
     System.out.println("scheduler start");
@@ -156,10 +156,12 @@ public class CalamityScheduler {
   }
 
   private String getStartDate() {
-    String startDate = repository.findFirstByOrderByModifiedDateDesc()
-        .orElseThrow(() -> new RuntimeException("No calamity found")).getModifiedDate();
+    CalamityMessageDto noCalamityFound = repository.findFirstByOrderByModifiedDateDesc()
+        .orElseThrow(() -> new RuntimeException("No calamity found"));
 
+    String startDate = noCalamityFound.getRegisteredDate();
     System.out.println("startDate: " + startDate);
+
     DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.n");
     DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
     LocalDateTime dateTime = LocalDateTime.parse(startDate, inputFormatter);
