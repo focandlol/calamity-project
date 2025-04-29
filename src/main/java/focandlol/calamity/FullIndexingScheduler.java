@@ -1,5 +1,6 @@
 package focandlol.calamity;
 
+import focandlol.calamity.common.RedissonLock;
 import focandlol.calamity.dto.CalamityDocument;
 import focandlol.calamity.dto.CalamityMessageDto;
 import focandlol.calamity.repository.CalamityRepository;
@@ -32,8 +33,11 @@ public class FullIndexingScheduler {
   private static final String WRITE_ALIAS = "calamity-write";
   private static final String NEW_INDEX = "calamity-" + LocalDate.now();
 
-  //@Scheduled(fixedRate = 60000)
+  //@Scheduled(fixedRate = 120000)
+  //@Scheduled(cron = "0 38 19 * * *")
+  @RedissonLock(prefix = "indexing", leaseTime = -1)
   public void reindexAll() {
+    log.info("full index start");
     createNewIndexWithAlias();
     switchWriteAlias();
     indexAllDocuments();
@@ -42,8 +46,11 @@ public class FullIndexingScheduler {
   }
 
   private void createNewIndexWithAlias() {
+    log.info("create index");
     IndexOperations indexOps = elasticsearchOperations.indexOps(IndexCoordinates.of(NEW_INDEX));
-    indexOps.create();
+    if (!indexOps.exists()) {
+      indexOps.create();
+    }
   }
 
   private void switchWriteAlias() {
@@ -72,6 +79,7 @@ public class FullIndexingScheduler {
     AliasActions aliasActions = new AliasActions();
     aliasActions.add(actions.toArray(new AliasAction[0]));
     elasticsearchOperations.indexOps(IndexCoordinates.of(NEW_INDEX)).alias(aliasActions);
+    log.info("switch write alias com");
   }
 
   private void indexAllDocuments() {
@@ -81,6 +89,8 @@ public class FullIndexingScheduler {
         .toList();
 
     elasticsearchOperations.save(documents, IndexCoordinates.of(WRITE_ALIAS));
+
+    log.info("indexing com");
   }
 
   private void switchReadAlias() {
@@ -109,5 +119,7 @@ public class FullIndexingScheduler {
     aliasActions.add(actions.toArray(new AliasAction[0]));
 
     elasticsearchOperations.indexOps(IndexCoordinates.of(NEW_INDEX)).alias(aliasActions);
+
+    log.info("switch read alias com");
   }
 }

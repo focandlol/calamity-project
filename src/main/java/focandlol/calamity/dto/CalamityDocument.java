@@ -54,7 +54,7 @@ public class CalamityDocument {
 
   private static String formatIso8601(String raw) {
     if (raw == null || raw.isBlank()) return null;
-
+    System.out.println("raw " + raw);
     DateTimeFormatter inputFormatter;
     if (raw.length() == 19) { // 2025/01/06 18:41:19
       inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");

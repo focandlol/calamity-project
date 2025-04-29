@@ -63,7 +63,7 @@ public class CalamityController {
   }
 
   @GetMapping("/calamity")
-  public List<CalamityListDto> getCalamities(@ModelAttribute CalamitySearchDto dto, Pageable pageable)
+  public Page<CalamityListDto> getCalamities(@ModelAttribute CalamitySearchDto dto, Pageable pageable)
       throws IOException {
     return elasticManager.search(dto, pageable);
   }

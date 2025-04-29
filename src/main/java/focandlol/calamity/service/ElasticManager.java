@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
@@ -62,6 +63,11 @@ public class ElasticManager {
           "nori_autocomplete_tokenizer", new Tokenizer.Builder()
               .definition(NoriTokenizer.of(n -> n
                   .decompoundMode(NoriDecompoundMode.Mixed)
+              )._toTokenizerDefinition())
+              .build(),
+          "nori_none_tokenizer", new Tokenizer.Builder()
+              .definition(NoriTokenizer.of(n -> n
+                  .decompoundMode(NoriDecompoundMode.None) // 복합어 절대 쪼개지 않게
               )._toTokenizerDefinition())
               .build()
       );
@@ -89,7 +95,14 @@ public class ElasticManager {
                   .tokenizer("nori_tokenizer")
                   .filter("lowercase")
                   .build())
+              .build(),
+          "nori_none_analyzer", new Analyzer.Builder()
+              .custom(new CustomAnalyzer.Builder()
+                  .tokenizer("nori_none_tokenizer")
+                  .filter("lowercase", "edge_ngram_filter")
+                  .build())
               .build()
+
       );
 
       IndexSettings settings = new IndexSettings.Builder()
@@ -108,7 +121,10 @@ public class ElasticManager {
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search"))
           .build());
       props.put("region", new Property.Builder()
-          .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search"))
+          .text(t -> t
+              .analyzer("nori_none_analyzer")
+              .searchAnalyzer("nori_none_analyzer")
+          )
           .build());
       props.put("regionList", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
@@ -305,7 +321,7 @@ public class ElasticManager {
         .orElseThrow(() -> new RuntimeException("Calamity not found")));
   }
 
-  public List<CalamityListDto> search(CalamitySearchDto dto, Pageable pageable) throws IOException {
+  public Page<CalamityListDto> search(CalamitySearchDto dto, Pageable pageable) throws IOException {
     List<Query> mustQueries = new ArrayList<>();
 
     if (dto.getMessage() != null) {
@@ -313,7 +329,8 @@ public class ElasticManager {
     }
 
     if (dto.getRegion() != null) {
-      mustQueries.add(Query.of(q -> q.match(m -> m.field("region").query(dto.getRegion()))));
+      mustQueries.add(Query.of(q -> q.match(m -> m.field("region").query(dto.getRegion())
+          .minimumShouldMatch("3"))));
     }
 
     if (dto.getCategory() != null) {
@@ -344,10 +361,14 @@ public class ElasticManager {
 
     SearchResponse<CalamityDocument> response = client.search(searchRequest, CalamityDocument.class);
 
-    return response.hits().hits().stream()
+    long totalElements = response.hits().total() != null ? response.hits().total().value() : 0L;
+
+    List<CalamityListDto> content = response.hits().hits().stream()
         .map(Hit::source)
         .map(CalamityListDto::from)
         .collect(Collectors.toList());
+
+    return new PageImpl<>(content, pageable, totalElements);
   }
 
 }

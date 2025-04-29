@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import focandlol.calamity.common.RedissonLock;
 import focandlol.calamity.dto.CalamityDocument;
 import focandlol.calamity.dto.CalamityMessageDto;
 import focandlol.calamity.repository.CalamityRepository;
@@ -19,6 +20,7 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,6 +35,7 @@ public class CalamityScheduler {
   private final CalamityRepository repository;
   private final ElasticsearchClient elasticsearchClient;
   private final ObjectMapper mapper;
+  private final RedissonClient redissonClient;
 
   @Value("${calamity.api.base-url}")
   private String baseUrl;
@@ -42,7 +45,8 @@ public class CalamityScheduler {
 
   private static final String WRITE_ALIAS = "calamity-write";
 
-  //@Scheduled(fixedRate = 60000) // 1분마다 실행
+  //@Scheduled(fixedRate = 120000) // 1분마다 실행
+  @RedissonLock(prefix = "indexing", leaseTime = -1)
   public void fetchAndIndex() {
     System.out.println("scheduler start");
     String startDate = getStartDate();
@@ -152,10 +156,12 @@ public class CalamityScheduler {
   }
 
   private String getStartDate() {
-    String startDate = repository.findFirstByOrderByModifiedDateDesc()
-        .orElseThrow(() -> new RuntimeException("No calamity found")).getModifiedDate();
+    CalamityMessageDto noCalamityFound = repository.findFirstByOrderByModifiedDateDesc()
+        .orElseThrow(() -> new RuntimeException("No calamity found"));
 
+    String startDate = noCalamityFound.getRegisteredDate();
     System.out.println("startDate: " + startDate);
+
     DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.n");
     DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
     LocalDateTime dateTime = LocalDateTime.parse(startDate, inputFormatter);
