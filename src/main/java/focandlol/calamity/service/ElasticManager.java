@@ -55,8 +55,7 @@ public class ElasticManager {
   private final ElasticsearchClient client;
   private final CalamitySearchRepository calamityRepository;
 
-  public void createTemplate(String templateName, String indexPattern, String readAlias,
-      String writeAlias) {
+  public void createTemplate(String templateName, String indexPattern, String readAlias, String writeAlias) {
     try {
       // Tokenizer 설정
       Map<String, Tokenizer> tokenizerMap = Map.of(
@@ -67,7 +66,7 @@ public class ElasticManager {
               .build(),
           "nori_none_tokenizer", new Tokenizer.Builder()
               .definition(NoriTokenizer.of(n -> n
-                  .decompoundMode(NoriDecompoundMode.None) // 복합어 절대 쪼개지 않게
+                  .decompoundMode(NoriDecompoundMode.None)
               )._toTokenizerDefinition())
               .build()
       );
@@ -102,7 +101,6 @@ public class ElasticManager {
                   .filter("lowercase", "edge_ngram_filter")
                   .build())
               .build()
-
       );
 
       IndexSettings settings = new IndexSettings.Builder()
@@ -115,16 +113,12 @@ public class ElasticManager {
 
       // Mappings
       Map<String, Property> props = new HashMap<>();
-      props.put("id", new Property.Builder().keyword(k -> k)
-          .build());
+      props.put("id", new Property.Builder().keyword(k -> k).build());
       props.put("message", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search"))
           .build());
       props.put("region", new Property.Builder()
-          .text(t -> t
-              .analyzer("nori_none_analyzer")
-              .searchAnalyzer("nori_none_analyzer")
-          )
+          .text(t -> t.analyzer("nori_none_analyzer").searchAnalyzer("nori_none_analyzer"))
           .build());
       props.put("regionList", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
@@ -133,6 +127,24 @@ public class ElasticManager {
       props.put("category", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
               .fields("keyword", f -> f.keyword(k -> k)))
+          .build());
+      props.put("sidoList", new Property.Builder()
+          .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
+              .fields("keyword", f -> f.keyword(k -> k)))
+          .build());
+      props.put("sigunguList", new Property.Builder()
+          .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
+              .fields("keyword", f -> f.keyword(k -> k)))
+          .build());
+      props.put("regions", new Property.Builder()
+          .nested(n -> n
+              .properties("sido", new Property.Builder()
+                  .keyword(k -> k)
+                  .build())
+              .properties("sigungu", new Property.Builder()
+                  .keyword(k -> k)
+                  .build())
+          )
           .build());
       props.put("createdAt", new Property.Builder().date(d -> d).build());
       props.put("registeredDate", new Property.Builder().date(d -> d).build());
@@ -150,6 +162,7 @@ public class ElasticManager {
       IndexTemplateMapping templateMapping = new IndexTemplateMapping.Builder()
           .settings(settings)
           .mappings(mapping)
+          //.aliases(aliasMap)
           .build();
 
       // 템플릿 존재 여부 확인
@@ -223,21 +236,140 @@ public class ElasticManager {
     }
   }
 
+//  public Map<String, Long> getRegionAggregation() throws IOException {
+//    SearchResponse<Void> response = client.search(sr -> sr
+//            .index("calamity-read")
+//            .aggregations("시로_끝나는_지역_집계", a -> a
+//                .filter(f -> f
+//                    .wildcard(w -> w
+//                        .field("regionList.keyword")
+//                        .value("*시")
+//                    )
+//                )
+//                .aggregations("지역별_집계", t -> t
+//                    .terms(term -> term
+//                        .field("regionList.keyword")
+//                        .size(100)
+//                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+//                    )
+//                )
+//            ),
+//        Void.class
+//    );
+//
+//    return response.aggregations()
+//        .get("시로_끝나는_지역_집계")
+//        .filter()
+//        .aggregations()
+//        .get("지역별_집계")
+//        .sterms()
+//        .buckets()
+//        .array()
+//        .stream()
+//        .filter(bucket -> bucket.key().stringValue().endsWith("시"))
+//        .collect(Collectors.toMap(
+//            bucket -> bucket.key().stringValue(),
+//            StringTermsBucket::docCount,
+//            (a, b) -> b,
+//            LinkedHashMap::new
+//        ));
+//  }
+
   public Map<String, Long> getRegionAggregation() throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
-            .index("calamity-write")
-            .aggregations("시로_끝나는_지역_집계", a -> a
-                .filter(f -> f
-                    .wildcard(w -> w
-                        .field("regionList.keyword")
-                        .value("*시")
-                    )
+            .index("calamity-read")
+            .aggregations("시도_집계", a -> a
+                .terms(t -> t
+                    .field("sidoList.keyword")
+                    .size(100)
+                    .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
                 )
-                .aggregations("지역별_집계", t -> t
-                    .terms(term -> term
-                        .field("regionList.keyword")
-                        .size(100)
-                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+            ),
+        Void.class
+    );
+
+    return response.aggregations()
+        .get("시도_집계")
+        .sterms()
+        .buckets()
+        .array()
+        .stream()
+        .collect(Collectors.toMap(
+            bucket -> bucket.key().stringValue(),
+            StringTermsBucket::docCount,
+            (a, b) -> b,
+            LinkedHashMap::new
+        ));
+  }
+
+//  public Map<String, Long> getSigunguAggregation() throws IOException {
+//    SearchResponse<Void> response = client.search(sr -> sr
+//            .index("calamity-read")
+//            .aggregations("서울_시군구_집계", a -> a
+//                .filter(f -> f
+//                    .nested(n -> n
+//                        .path("regions")
+//                        .query(q -> q
+//                            .term(t -> t
+//                                .field("regions.sido")
+//                                .value("서울특별시")
+//                            )
+//                        )
+//                    )
+//                )
+//                .aggregations("sigungu_agg", t -> t
+//                    .terms(term -> term
+//                        .field("regions.sigungu")
+//                        .size(100)
+//                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+//                    )
+//                )
+//            ),
+//        Void.class
+//    );
+//
+//    return response.aggregations()
+//        .get("서울_시군구_집계")
+//        .filter()
+//        .aggregations()
+//        .get("sigungu_agg")
+//        .sterms()
+//        .buckets()
+//        .array()
+//        .stream()
+//        .collect(Collectors.toMap(
+//            bucket -> bucket.key().stringValue(),
+//            StringTermsBucket::docCount,
+//            (a, b) -> b,
+//            LinkedHashMap::new
+//        ));
+//  }
+
+  public Map<String, Long> getSigunguAggregation() throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-read")
+            .query(q -> q
+                .range(r -> r
+                    .field("modifiedDate")
+                    .gte(JsonData.of("2025-04-01T00:00:00"))
+                    .lte(JsonData.of("2025-04-30T23:59:59"))
+                )
+            )
+            .aggregations("regions_nested", a -> a
+                .nested(n -> n.path("regions"))
+                .aggregations("서울_시군구_필터", a2 -> a2
+                    .filter(f -> f
+                        .term(t -> t
+                            .field("regions.sido")
+                            .value("서울특별시")
+                        )
+                    )
+                    .aggregations("sigungu_agg", t -> t
+                        .terms(term -> term
+                            .field("regions.sigungu")
+                            .size(100)
+                            .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+                        )
                     )
                 )
             ),
@@ -245,15 +377,17 @@ public class ElasticManager {
     );
 
     return response.aggregations()
-        .get("시로_끝나는_지역_집계")
+        .get("regions_nested")
+        .nested()
+        .aggregations()
+        .get("서울_시군구_필터")
         .filter()
         .aggregations()
-        .get("지역별_집계")
+        .get("sigungu_agg")
         .sterms()
         .buckets()
         .array()
         .stream()
-        .filter(bucket -> bucket.key().stringValue().endsWith("시"))
         .collect(Collectors.toMap(
             bucket -> bucket.key().stringValue(),
             StringTermsBucket::docCount,

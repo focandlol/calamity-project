@@ -39,7 +39,7 @@ public class CalamityController {
 
   @PostMapping("/_template")
   public void createTemplate(){
-    elasticManager.createTemplate("calamity","calamity-*","calamity-read","calamity-write");
+    elasticManager.createTemplate("calamity","calamity-*","calamity-read1","calamity-write1");
   }
 
   @GetMapping("/region_aggregation")
@@ -50,6 +50,11 @@ public class CalamityController {
   @GetMapping("/category_aggregation")
   public Map<String, Long> getCategoryAggregation() throws IOException {
     return elasticManager.getCategoryAggregation();
+  }
+
+  @GetMapping("/region_sigungu_aggregation")
+  public Map<String, Long> getSigunguAggregation() throws IOException {
+    return elasticManager.getSigunguAggregation();
   }
 
   @GetMapping("/region")

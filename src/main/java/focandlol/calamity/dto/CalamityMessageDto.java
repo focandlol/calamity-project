@@ -25,6 +25,10 @@ public class CalamityMessageDto {
 
   private List<String> regionList;
 
+  private List<String> sido;
+
+  private List<String> sigungu;
+
   private String createdAt;
 
   private String category;
@@ -33,12 +37,14 @@ public class CalamityMessageDto {
 
   private String modifiedDate;
 
-  public static CalamityMessageDto from(JsonNode item, List<String> regionList) {
+  public static CalamityMessageDto from(JsonNode item, RegionData regionData) {
     return CalamityMessageDto.builder()
         .id(item.path("SN").asText())
         .message(item.path("MSG_CN").asText())
         .region(item.path("RCPTN_RGN_NM").asText().trim())
-        .regionList(regionList)
+        .regionList(regionData.getRegionList())
+        .sido(regionData.getSidoList())
+        .sigungu(regionData.getSigunguList())
         .createdAt(item.path("CRT_DT").asText())
         .category(item.path("DST_SE_NM").asText())
         .registeredDate(item.path("REG_YMD").asText())
