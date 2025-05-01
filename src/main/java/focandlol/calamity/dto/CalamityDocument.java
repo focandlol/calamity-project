@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,13 +30,9 @@ public class CalamityDocument {
 
   private String region;
 
-  private List<String> regionList;
+  private Set<String> sido;
 
-  private List<String> sidoList;
-
-  private List<String> sigunguList;
-
-  private List<Region> regions;
+  private Set<Region> regions;
 
   private String category;
 
@@ -45,41 +42,18 @@ public class CalamityDocument {
 
   private String modifiedDate;
 
-  @Getter
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class Region {
-    private String sido;
-    private String sigungu;
-  }
-
   public static CalamityDocument from(CalamityMessageDto dto) {
     return CalamityDocument.builder()
         .id(dto.getId())
         .message(dto.getMessage())
         .region(dto.getRegion())
-        .regionList(dto.getRegionList())
-        .sidoList(dto.getSido())
-        .sigunguList(dto.getSigungu())
-        .regions(buildRegions(dto.getSido(), dto.getSigungu()))
+        .sido(dto.getSido())
+        .regions(dto.getRegions())
         .category(dto.getCategory())
         .createdAt(formatIso8601(dto.getCreatedAt()))
         .registeredDate(formatIso8601(dto.getRegisteredDate()))
         .modifiedDate(formatIso8601(dto.getModifiedDate()))
         .build();
-  }
-
-  private static List<Region> buildRegions(List<String> sidoList, List<String> sigunguList) {
-    if (sidoList == null || sigunguList == null || sidoList.size() != sigunguList.size()) {
-      throw new IllegalArgumentException("sidoList와 sigunguList 길이가 다릅니다.");
-    }
-
-    List<Region> regions = new ArrayList<>();
-    for (int i = 0; i < sidoList.size(); i++) {
-      regions.add(new Region(sidoList.get(i), sigunguList.get(i)));
-    }
-    return regions;
   }
 
   private static String formatIso8601(String raw) {

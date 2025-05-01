@@ -1,13 +1,13 @@
 package focandlol.calamity.dto;
 
 import java.util.List;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @AllArgsConstructor
 @Getter
 public class RegionData {
-  private final List<String> regionList;
-  private final List<String> sidoList;
-  private final List<String> sigunguList;
+  private final Set<String> sidoSet;
+  private final Set<Region> regionSet;
 }

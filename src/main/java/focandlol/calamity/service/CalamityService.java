@@ -3,6 +3,7 @@ package focandlol.calamity.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import focandlol.calamity.dto.CalamityMessageDto;
+import focandlol.calamity.dto.Region;
 import focandlol.calamity.dto.RegionData;
 import focandlol.calamity.repository.CalamityRepository;
 import java.net.URLEncoder;
@@ -96,20 +97,17 @@ public class CalamityService {
 
   private RegionData parseRegionLists(String region) {
     if (region == null || region.isBlank()) {
-      return new RegionData(List.of(), List.of(), List.of());
+      return new RegionData(new HashSet<>(), new HashSet<>());
     }
 
-    Set<String> regionSet = new HashSet<>();
-    List<String> sidoList = new ArrayList<>();
-    List<String> sigunguList = new ArrayList<>();
+    Set<Region> regionSet = new HashSet<>();
+    Set<String> sidoSet = new HashSet<>();
 
     String[] regions = region.split(",");
 
     for (String r : regions) {
       r = r.trim();
       if (r.isEmpty()) continue;
-
-      regionSet.add(r);
 
       String[] parts = r.split("\\s+");
 
@@ -119,7 +117,7 @@ public class CalamityService {
       if (parts.length >= 1) {
         String p0 = parts[0];
 
-        if (p0.endsWith("도") || p0.endsWith("특별시") || p0.endsWith("광역시")) {
+        if (p0.endsWith("도") || p0.endsWith("특별시") || p0.endsWith("광역시") || p0.endsWith("자치시")) {
           sido = p0;
 
           if (parts.length >= 2) {
@@ -134,14 +132,13 @@ public class CalamityService {
         }
       }
 
-      sidoList.add(sido);
-      sigunguList.add(sigungu);
+      sidoSet.add(sido);
+      regionSet.add(new Region(sido, sigungu));
     }
 
     return new RegionData(
-        new ArrayList<>(regionSet),
-        sidoList,
-        sigunguList
+        sidoSet,
+        regionSet
     );
   }
 }

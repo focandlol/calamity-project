@@ -55,7 +55,8 @@ public class ElasticManager {
   private final ElasticsearchClient client;
   private final CalamitySearchRepository calamityRepository;
 
-  public void createTemplate(String templateName, String indexPattern, String readAlias, String writeAlias) {
+  public void createTemplate(String templateName, String indexPattern, String readAlias,
+      String writeAlias) {
     try {
       // Tokenizer 설정
       Map<String, Tokenizer> tokenizerMap = Map.of(
@@ -120,19 +121,11 @@ public class ElasticManager {
       props.put("region", new Property.Builder()
           .text(t -> t.analyzer("nori_none_analyzer").searchAnalyzer("nori_none_analyzer"))
           .build());
-      props.put("regionList", new Property.Builder()
-          .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
-              .fields("keyword", f -> f.keyword(k -> k)))
-          .build());
       props.put("category", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
               .fields("keyword", f -> f.keyword(k -> k)))
           .build());
-      props.put("sidoList", new Property.Builder()
-          .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
-              .fields("keyword", f -> f.keyword(k -> k)))
-          .build());
-      props.put("sigunguList", new Property.Builder()
+      props.put("sido", new Property.Builder()
           .text(t -> t.analyzer("nori_autocomplete").searchAnalyzer("nori_search")
               .fields("keyword", f -> f.keyword(k -> k)))
           .build());
@@ -279,11 +272,11 @@ public class ElasticManager {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
             .aggregations("시도_집계", a -> a
-                .terms(t -> t
-                    .field("sidoList.keyword")
-                    .size(100)
-                    .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
-                )
+                    .terms(t -> t
+                        .field("sido.keyword")
+                        .size(100)
+                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+                    )
             ),
         Void.class
     );
@@ -351,7 +344,7 @@ public class ElasticManager {
             .query(q -> q
                 .range(r -> r
                     .field("modifiedDate")
-                    .gte(JsonData.of("2025-04-01T00:00:00"))
+                    .gte(JsonData.of("2025-01-01T00:00:00"))
                     .lte(JsonData.of("2025-04-30T23:59:59"))
                 )
             )
@@ -477,10 +470,12 @@ public class ElasticManager {
       mustQueries.add(Query.of(q -> q.range(r -> r
           .field("modifiedDate")
           .gte(dto.getCreatedAtFrom() != null
-              ? JsonData.of(LocalDate.parse(dto.getCreatedAtFrom(), formatter).atStartOfDay().toString())
+              ? JsonData.of(
+              LocalDate.parse(dto.getCreatedAtFrom(), formatter).atStartOfDay().toString())
               : null)
           .lte(dto.getCreatedAtTo() != null
-              ? JsonData.of(LocalDate.parse(dto.getCreatedAtTo(), formatter).atTime(23, 59, 59).toString())
+              ? JsonData.of(
+              LocalDate.parse(dto.getCreatedAtTo(), formatter).atTime(23, 59, 59).toString())
               : null)
       )));
     }
@@ -493,7 +488,8 @@ public class ElasticManager {
         .sort(sort -> sort.field(f -> f.field("id").order(SortOrder.Desc)))
     );
 
-    SearchResponse<CalamityDocument> response = client.search(searchRequest, CalamityDocument.class);
+    SearchResponse<CalamityDocument> response = client.search(searchRequest,
+        CalamityDocument.class);
 
     long totalElements = response.hits().total() != null ? response.hits().total().value() : 0L;
 

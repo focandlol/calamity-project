@@ -17,8 +17,6 @@ public class CalamityDetailsDto {
 
   private String region;
 
-  private List<String> regionList;
-
   private String createdAt;
 
   private String category;
@@ -30,7 +28,6 @@ public class CalamityDetailsDto {
         .id(document.getId())
         .message(document.getMessage())
         .region(document.getRegion())
-        .regionList(document.getRegionList())
         .createdAt(document.getCreatedAt())
         .category(document.getCategory())
         .modifiedDate(document.getModifiedDate())

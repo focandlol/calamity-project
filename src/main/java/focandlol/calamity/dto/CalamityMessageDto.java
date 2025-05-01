@@ -1,7 +1,10 @@
 package focandlol.calamity.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,11 +26,9 @@ public class CalamityMessageDto {
 
   private String region;
 
-  private List<String> regionList;
+  private Set<String> sido;
 
-  private List<String> sido;
-
-  private List<String> sigungu;
+  private Set<Region> regions;
 
   private String createdAt;
 
@@ -42,9 +43,8 @@ public class CalamityMessageDto {
         .id(item.path("SN").asText())
         .message(item.path("MSG_CN").asText())
         .region(item.path("RCPTN_RGN_NM").asText().trim())
-        .regionList(regionData.getRegionList())
-        .sido(regionData.getSidoList())
-        .sigungu(regionData.getSigunguList())
+        .sido(regionData.getSidoSet())
+        .regions(regionData.getRegionSet())
         .createdAt(item.path("CRT_DT").asText())
         .category(item.path("DST_SE_NM").asText())
         .registeredDate(item.path("REG_YMD").asText())
