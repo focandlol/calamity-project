@@ -3,7 +3,9 @@ package focandlol.calamity.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -14,7 +16,6 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Highlight;
 
 @Document(indexName = "calamity-read")
-@TypeAlias("")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,11 +30,13 @@ public class CalamityDocument {
 
   private String region;
 
-  private List<String> regionList;
+  private Set<String> sido;
 
-  private String createdAt;
+  private Set<Region> regions;
 
   private String category;
+
+  private String createdAt;
 
   private String registeredDate;
 
@@ -44,9 +47,10 @@ public class CalamityDocument {
         .id(dto.getId())
         .message(dto.getMessage())
         .region(dto.getRegion())
-        .regionList(dto.getRegionList())
-        .createdAt(formatIso8601(dto.getCreatedAt()))
+        .sido(dto.getSido())
+        .regions(dto.getRegions())
         .category(dto.getCategory())
+        .createdAt(formatIso8601(dto.getCreatedAt()))
         .registeredDate(formatIso8601(dto.getRegisteredDate()))
         .modifiedDate(formatIso8601(dto.getModifiedDate()))
         .build();
@@ -54,7 +58,6 @@ public class CalamityDocument {
 
   private static String formatIso8601(String raw) {
     if (raw == null || raw.isBlank()) return null;
-    System.out.println("raw " + raw);
     DateTimeFormatter inputFormatter;
     if (raw.length() == 19) { // 2025/01/06 18:41:19
       inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
@@ -67,6 +70,4 @@ public class CalamityDocument {
     return LocalDateTime.parse(raw, inputFormatter)
         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
   }
-
-
 }

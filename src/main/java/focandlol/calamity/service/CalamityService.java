@@ -3,11 +3,16 @@ package focandlol.calamity.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import focandlol.calamity.dto.CalamityMessageDto;
+import focandlol.calamity.dto.Region;
+import focandlol.calamity.dto.RegionData;
 import focandlol.calamity.repository.CalamityRepository;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -44,15 +49,15 @@ public class CalamityService {
       for (JsonNode item : items) {
         String sn = item.path("SN").asText();
 
-        if (repository.existsById(sn)) {
-          continue;
-        }
+//        if (repository.existsById(sn)) {
+//          continue;
+//        }
 
         String rawRegion = item.path("RCPTN_RGN_NM").asText().trim();
 
-        List<String> regionList = parseRegionList(rawRegion);
+        RegionData regionData = parseRegionLists(rawRegion);
 
-        repository.save(CalamityMessageDto.from(item, regionList));
+        repository.save(CalamityMessageDto.from(item, regionData));
       }
 
       page++;
@@ -90,11 +95,51 @@ public class CalamityService {
     }
   }
 
-  private List<String> parseRegionList(String region) {
+  private RegionData parseRegionLists(String region) {
     if (region == null || region.isBlank()) {
-      return List.of();
+      return new RegionData(new HashSet<>(), new HashSet<>());
     }
-    return Arrays.asList(region.trim().split("\\s+"));
+
+    Set<Region> regionSet = new HashSet<>();
+    Set<String> sidoSet = new HashSet<>();
+
+    String[] regions = region.split(",");
+
+    for (String r : regions) {
+      r = r.trim();
+      if (r.isEmpty()) continue;
+
+      String[] parts = r.split("\\s+");
+
+      String sido = "시도 정보 없음";
+      String sigungu = "전체";
+
+      if (parts.length >= 1) {
+        String p0 = parts[0];
+
+        if (p0.endsWith("도") || p0.endsWith("특별시") || p0.endsWith("광역시") || p0.endsWith("자치시")) {
+          sido = p0;
+
+          if (parts.length >= 2) {
+            String p1 = parts[1];
+            if (p1.endsWith("시") || p1.endsWith("군") || p1.endsWith("구")) {
+              sigungu = p1;
+            }
+          }
+        } else {
+          // p0이 시군구일 경우
+          sigungu = p0;
+        }
+      }
+
+      sidoSet.add(sido);
+      regionSet.add(new Region(sido, sigungu));
+    }
+
+    return new RegionData(
+        sidoSet,
+        regionSet
+    );
   }
 }
 
