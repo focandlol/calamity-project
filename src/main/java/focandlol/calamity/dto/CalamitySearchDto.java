@@ -16,7 +16,9 @@ public class CalamitySearchDto {
 
   private String category;
 
-  private String region;
+  private String sido;
+
+  private String sigungu;
 
   private String createdAtFrom;
 

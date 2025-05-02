@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch._types.analysis.CustomAnalyzer;
 import co.elastic.clients.elasticsearch._types.analysis.EdgeNGramTokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.NoriDecompoundMode;
 import co.elastic.clients.elasticsearch._types.analysis.NoriTokenizer;
+import co.elastic.clients.elasticsearch._types.analysis.StopTokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.Tokenizer;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -79,6 +80,16 @@ public class ElasticManager {
                   .minGram(1)
                   .maxGram(20)
               )._toTokenFilterDefinition())
+              .build(),
+          "sido_stop_filter", new TokenFilter.Builder()
+              .definition(StopTokenFilter.of(s -> s
+                  .stopwords(List.of("시", "도", "자치", "특별", "광역", "광역시", "특별자치시", "특별자치도"))
+              )._toTokenFilterDefinition())
+              .build(),
+          "sigungu_stop_filter", new TokenFilter.Builder()
+              .definition(StopTokenFilter.of(s -> s
+                  .stopwords(List.of("시", "군", "구"))
+              )._toTokenFilterDefinition())
               .build()
       );
 
@@ -100,6 +111,20 @@ public class ElasticManager {
               .custom(new CustomAnalyzer.Builder()
                   .tokenizer("nori_none_tokenizer")
                   .filter("lowercase", "edge_ngram_filter")
+                  .build())
+              .build(),
+          "sido_nori_analyzer", new Analyzer.Builder()
+              .custom(new CustomAnalyzer.Builder()
+                  .tokenizer("nori_none_tokenizer")
+                  .filter("lowercase", "sido_stop_filter", "edge_ngram_filter")
+                  .build())
+              .build(),
+
+          // sigungu analyzer
+          "sigungu_nori_analyzer", new Analyzer.Builder()
+              .custom(new CustomAnalyzer.Builder()
+                  .tokenizer("nori_none_tokenizer")
+                  .filter("lowercase", "sigungu_stop_filter", "edge_ngram_filter")
                   .build())
               .build()
       );
@@ -132,10 +157,20 @@ public class ElasticManager {
       props.put("regions", new Property.Builder()
           .nested(n -> n
               .properties("sido", new Property.Builder()
-                  .keyword(k -> k)
+                  .text(t -> t
+                      .analyzer("sido_nori_analyzer")
+                      .searchAnalyzer("nori_search")
+                      .fields("keyword", f -> f.keyword(k -> k)
+                      )
+                  )
                   .build())
               .properties("sigungu", new Property.Builder()
-                  .keyword(k -> k)
+                  .text(t -> t
+                      .analyzer("sigungu_nori_analyzer")
+                      .searchAnalyzer("nori_search")
+                      .fields("keyword", f -> f.keyword(k -> k)
+                      )
+                  )
                   .build())
           )
           .build());
@@ -353,13 +388,13 @@ public class ElasticManager {
                 .aggregations("서울_시군구_필터", a2 -> a2
                     .filter(f -> f
                         .term(t -> t
-                            .field("regions.sido")
+                            .field("regions.sido.keyword")
                             .value("서울특별시")
                         )
                     )
                     .aggregations("sigungu_agg", t -> t
                         .terms(term -> term
-                            .field("regions.sigungu")
+                            .field("regions.sigungu.keyword")
                             .size(100)
                             .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
                         )
@@ -391,7 +426,7 @@ public class ElasticManager {
 
   public Map<String, Long> getCategoryAggregation() throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
-            .index("calamity-write")
+            .index("calamity-read")
             .aggregations("카테고리_집계", t -> t
                 .terms(term -> term
                     .field("category.keyword")
@@ -455,9 +490,26 @@ public class ElasticManager {
       mustQueries.add(Query.of(q -> q.match(m -> m.field("message").query(dto.getMessage()))));
     }
 
-    if (dto.getRegion() != null) {
-      mustQueries.add(Query.of(q -> q.match(m -> m.field("region").query(dto.getRegion())
-          .minimumShouldMatch("3"))));
+    if (dto.getSido() != null) {
+      mustQueries.add(Query.of(q -> q
+          .nested(n -> n
+              .path("regions")
+              .query(nq -> nq
+                  .match(m -> m.field("regions.sido").query(dto.getSido()))
+              )
+          )
+      ));
+    }
+
+    if (dto.getSigungu() != null) {
+      mustQueries.add(Query.of(q -> q
+          .nested(n -> n
+              .path("regions")
+              .query(nq -> nq
+                  .match(m -> m.field("regions.sigungu").query(dto.getSigungu()))
+              )
+          )
+      ));
     }
 
     if (dto.getCategory() != null) {
