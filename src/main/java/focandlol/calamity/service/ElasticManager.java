@@ -307,11 +307,11 @@ public class ElasticManager {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
             .aggregations("시도_집계", a -> a
-                    .terms(t -> t
-                        .field("sido.keyword")
-                        .size(100)
-                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
-                    )
+                .terms(t -> t
+                    .field("sido.keyword")
+                    .size(100)
+                    .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+                )
             ),
         Void.class
     );
@@ -487,7 +487,13 @@ public class ElasticManager {
     List<Query> mustQueries = new ArrayList<>();
 
     if (dto.getMessage() != null) {
-      mustQueries.add(Query.of(q -> q.match(m -> m.field("message").query(dto.getMessage()))));
+      mustQueries.add(
+          Query.of(q -> q.fuzzy(f -> f
+              .field("message")
+              .value(dto.getMessage())
+              .fuzziness("auto")
+          ))
+      );
     }
 
     if (dto.getSido() != null) {
@@ -538,6 +544,7 @@ public class ElasticManager {
         .from((int) pageable.getOffset())
         .size(pageable.getPageSize())
         .sort(sort -> sort.field(f -> f.field("id").order(SortOrder.Desc)))
+        .minScore(2.0)
     );
 
     SearchResponse<CalamityDocument> response = client.search(searchRequest,
