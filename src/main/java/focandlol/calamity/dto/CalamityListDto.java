@@ -19,8 +19,6 @@ public class CalamityListDto {
 
   private String category;
 
-  //private Set<Region> regions;
-
   private String modifiedDate;
 
   public static CalamityListDto from(CalamityDocument document){

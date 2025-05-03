@@ -544,7 +544,6 @@ public class ElasticManager {
         .from((int) pageable.getOffset())
         .size(pageable.getPageSize())
         .sort(sort -> sort.field(f -> f.field("id").order(SortOrder.Desc)))
-        .minScore(2.0)
     );
 
     SearchResponse<CalamityDocument> response = client.search(searchRequest,
