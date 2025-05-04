@@ -3,6 +3,8 @@ package focandlol.calamity.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
+import co.elastic.clients.elasticsearch._types.aggregations.FieldDateMath;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.analysis.Analyzer;
@@ -28,6 +30,7 @@ import co.elastic.clients.elasticsearch.indices.PutIndexTemplateRequest;
 import co.elastic.clients.elasticsearch.indices.put_index_template.IndexTemplateMapping;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.util.NamedValue;
+import focandlol.calamity.dto.AggregationDto;
 import focandlol.calamity.dto.CalamityDetailsDto;
 import focandlol.calamity.dto.CalamityDocument;
 import focandlol.calamity.dto.CalamityListDto;
@@ -446,6 +449,31 @@ public class ElasticManager {
             (a, b) -> b,
             LinkedHashMap::new
         ));
+  }
+
+  public List<AggregationDto> getDateAggregation(String year) throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-read")
+            .size(0)
+            .aggregations("달_집계", a -> a
+                .dateHistogram(h -> h
+                    .field("createdAt")
+                    .calendarInterval(CalendarInterval.Month)
+                    .format("yyyy-MM")
+                    .minDocCount(1)
+                    .extendedBounds(eb -> eb
+                        .min(FieldDateMath.of(f -> f.expr(year + "-01")))
+                        .max(FieldDateMath.of(f -> f.expr(year + "-12")))
+                    )))
+        , Void.class);
+
+    return response.aggregations().get("달_집계")
+        .dateHistogram()
+        .buckets()
+        .array()
+        .stream()
+        .map(m -> new AggregationDto(m.keyAsString(), m.docCount()))
+        .collect(Collectors.toList());
   }
 
   public List<CalamityDocument> getRegionList() throws IOException {
