@@ -3,8 +3,12 @@ package focandlol.calamity.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Buckets;
+import co.elastic.clients.elasticsearch._types.aggregations.Buckets.Builder;
 import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
 import co.elastic.clients.elasticsearch._types.aggregations.FieldDateMath;
+import co.elastic.clients.elasticsearch._types.aggregations.FiltersAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.FiltersBucket;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.analysis.Analyzer;
@@ -17,8 +21,8 @@ import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.Tokenizer;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
@@ -30,6 +34,7 @@ import co.elastic.clients.elasticsearch.indices.PutIndexTemplateRequest;
 import co.elastic.clients.elasticsearch.indices.put_index_template.IndexTemplateMapping;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.util.NamedValue;
+import co.elastic.clients.util.ObjectBuilder;
 import focandlol.calamity.dto.AggregationDto;
 import focandlol.calamity.dto.CalamityDetailsDto;
 import focandlol.calamity.dto.CalamityDocument;
@@ -38,18 +43,23 @@ import focandlol.calamity.dto.CalamitySearchDto;
 import focandlol.calamity.repository.CalamitySearchRepository;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.core.NamedQueries;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -309,6 +319,13 @@ public class ElasticManager {
   public Map<String, Long> getRegionAggregation() throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
+            .query(q -> q
+                .range(r -> r
+                    .field("modifiedDate")
+                    .gte(JsonData.of("2025-03-01T00:00:00"))
+                    .lte(JsonData.of("2025-03-31T23:59:59"))
+                )
+            )
             .aggregations("시도_집계", a -> a
                 .terms(t -> t
                     .field("sido.keyword")
@@ -332,6 +349,7 @@ public class ElasticManager {
             LinkedHashMap::new
         ));
   }
+
 
 //  public Map<String, Long> getSigunguAggregation() throws IOException {
 //    SearchResponse<Void> response = client.search(sr -> sr
@@ -451,10 +469,15 @@ public class ElasticManager {
         ));
   }
 
-  public List<AggregationDto> getDateAggregation(String year) throws IOException {
+  public List<AggregationDto> getYearAggregation(String year) throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
             .size(0)
+            .query(q -> q
+                .range(r -> r
+                    .field("createdAt")
+                    .gte(JsonData.of(year + "-01-01"))
+                    .lte(JsonData.of(year + "-12-31"))))
             .aggregations("달_집계", a -> a
                 .dateHistogram(h -> h
                     .field("createdAt")
@@ -464,6 +487,39 @@ public class ElasticManager {
                     .extendedBounds(eb -> eb
                         .min(FieldDateMath.of(f -> f.expr(year + "-01")))
                         .max(FieldDateMath.of(f -> f.expr(year + "-12")))
+                    )))
+        , Void.class);
+
+    return response.aggregations().get("달_집계")
+        .dateHistogram()
+        .buckets()
+        .array()
+        .stream()
+        .map(m -> new AggregationDto(m.keyAsString(), m.docCount()))
+        .collect(Collectors.toList());
+  }
+
+  public List<AggregationDto> getMonthAggregation(String yearMonth) throws IOException {
+    String minDate = yearMonth + "-01";
+    String maxDate = LocalDate.parse(minDate).with(TemporalAdjusters.lastDayOfMonth()).toString();
+
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-read")
+            .size(0)
+            .query(q -> q
+                .range(r -> r
+                    .field("createdAt")
+                    .gte(JsonData.of(minDate))
+                    .lte(JsonData.of(maxDate))))
+            .aggregations("달_집계", a -> a
+                .dateHistogram(h -> h
+                    .field("createdAt")
+                    .calendarInterval(CalendarInterval.Day)
+                    .format("yyyy-MM-dd")
+                    .minDocCount(1)
+                    .extendedBounds(eb -> eb
+                        .min(FieldDateMath.of(f -> f.expr(minDate)))
+                        .max(FieldDateMath.of(f -> f.expr(maxDate)))
                     )))
         , Void.class);
 
