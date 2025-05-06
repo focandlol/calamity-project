@@ -1,7 +1,7 @@
 package focandlol.calamity.controller;
 
+import focandlol.calamity.dto.AggregationDto;
 import focandlol.calamity.dto.CalamityDetailsDto;
-import focandlol.calamity.dto.CalamityDocument;
 import focandlol.calamity.dto.CalamityListDto;
 import focandlol.calamity.dto.CalamitySearchDto;
 import focandlol.calamity.service.CalamityService;
@@ -60,6 +60,16 @@ public class CalamityController {
   @GetMapping("/region")
   public List<CalamityListDto> getRegi(@RequestParam String region, Pageable pageable) throws IOException {
     return elasticManager.getRegionListData(region, pageable);
+  }
+
+  @GetMapping("/month_aggregation")
+  public List<AggregationDto> getMonthAggregation(@RequestParam String year) throws IOException {
+    return elasticManager.getYearAggregation(year);
+  }
+
+  @GetMapping("/day_aggregation")
+  public List<AggregationDto> getDayAggregation(@RequestParam String yearMonth) throws IOException {
+    return elasticManager.getMonthAggregation(yearMonth);
   }
 
   @GetMapping("/calamity/{id}")

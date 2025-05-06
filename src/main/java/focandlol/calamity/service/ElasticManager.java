@@ -3,6 +3,12 @@ package focandlol.calamity.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Buckets;
+import co.elastic.clients.elasticsearch._types.aggregations.Buckets.Builder;
+import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
+import co.elastic.clients.elasticsearch._types.aggregations.FieldDateMath;
+import co.elastic.clients.elasticsearch._types.aggregations.FiltersAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.FiltersBucket;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.analysis.Analyzer;
@@ -10,12 +16,13 @@ import co.elastic.clients.elasticsearch._types.analysis.CustomAnalyzer;
 import co.elastic.clients.elasticsearch._types.analysis.EdgeNGramTokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.NoriDecompoundMode;
 import co.elastic.clients.elasticsearch._types.analysis.NoriTokenizer;
+import co.elastic.clients.elasticsearch._types.analysis.StopTokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.TokenFilter;
 import co.elastic.clients.elasticsearch._types.analysis.Tokenizer;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
@@ -27,6 +34,8 @@ import co.elastic.clients.elasticsearch.indices.PutIndexTemplateRequest;
 import co.elastic.clients.elasticsearch.indices.put_index_template.IndexTemplateMapping;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.util.NamedValue;
+import co.elastic.clients.util.ObjectBuilder;
+import focandlol.calamity.dto.AggregationDto;
 import focandlol.calamity.dto.CalamityDetailsDto;
 import focandlol.calamity.dto.CalamityDocument;
 import focandlol.calamity.dto.CalamityListDto;
@@ -34,18 +43,23 @@ import focandlol.calamity.dto.CalamitySearchDto;
 import focandlol.calamity.repository.CalamitySearchRepository;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.core.NamedQueries;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -79,6 +93,16 @@ public class ElasticManager {
                   .minGram(1)
                   .maxGram(20)
               )._toTokenFilterDefinition())
+              .build(),
+          "sido_stop_filter", new TokenFilter.Builder()
+              .definition(StopTokenFilter.of(s -> s
+                  .stopwords(List.of("시", "도", "자치", "특별", "광역", "광역시", "특별자치시", "특별자치도"))
+              )._toTokenFilterDefinition())
+              .build(),
+          "sigungu_stop_filter", new TokenFilter.Builder()
+              .definition(StopTokenFilter.of(s -> s
+                  .stopwords(List.of("시", "군", "구"))
+              )._toTokenFilterDefinition())
               .build()
       );
 
@@ -100,6 +124,20 @@ public class ElasticManager {
               .custom(new CustomAnalyzer.Builder()
                   .tokenizer("nori_none_tokenizer")
                   .filter("lowercase", "edge_ngram_filter")
+                  .build())
+              .build(),
+          "sido_nori_analyzer", new Analyzer.Builder()
+              .custom(new CustomAnalyzer.Builder()
+                  .tokenizer("nori_none_tokenizer")
+                  .filter("lowercase", "sido_stop_filter", "edge_ngram_filter")
+                  .build())
+              .build(),
+
+          // sigungu analyzer
+          "sigungu_nori_analyzer", new Analyzer.Builder()
+              .custom(new CustomAnalyzer.Builder()
+                  .tokenizer("nori_none_tokenizer")
+                  .filter("lowercase", "sigungu_stop_filter", "edge_ngram_filter")
                   .build())
               .build()
       );
@@ -132,10 +170,20 @@ public class ElasticManager {
       props.put("regions", new Property.Builder()
           .nested(n -> n
               .properties("sido", new Property.Builder()
-                  .keyword(k -> k)
+                  .text(t -> t
+                      .analyzer("sido_nori_analyzer")
+                      .searchAnalyzer("nori_search")
+                      .fields("keyword", f -> f.keyword(k -> k)
+                      )
+                  )
                   .build())
               .properties("sigungu", new Property.Builder()
-                  .keyword(k -> k)
+                  .text(t -> t
+                      .analyzer("sigungu_nori_analyzer")
+                      .searchAnalyzer("nori_search")
+                      .fields("keyword", f -> f.keyword(k -> k)
+                      )
+                  )
                   .build())
           )
           .build());
@@ -271,12 +319,19 @@ public class ElasticManager {
   public Map<String, Long> getRegionAggregation() throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
+            .query(q -> q
+                .range(r -> r
+                    .field("modifiedDate")
+                    .gte(JsonData.of("2025-03-01T00:00:00"))
+                    .lte(JsonData.of("2025-03-31T23:59:59"))
+                )
+            )
             .aggregations("시도_집계", a -> a
-                    .terms(t -> t
-                        .field("sido.keyword")
-                        .size(100)
-                        .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
-                    )
+                .terms(t -> t
+                    .field("sido.keyword")
+                    .size(100)
+                    .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+                )
             ),
         Void.class
     );
@@ -294,6 +349,7 @@ public class ElasticManager {
             LinkedHashMap::new
         ));
   }
+
 
 //  public Map<String, Long> getSigunguAggregation() throws IOException {
 //    SearchResponse<Void> response = client.search(sr -> sr
@@ -353,13 +409,13 @@ public class ElasticManager {
                 .aggregations("서울_시군구_필터", a2 -> a2
                     .filter(f -> f
                         .term(t -> t
-                            .field("regions.sido")
+                            .field("regions.sido.keyword")
                             .value("서울특별시")
                         )
                     )
                     .aggregations("sigungu_agg", t -> t
                         .terms(term -> term
-                            .field("regions.sigungu")
+                            .field("regions.sigungu.keyword")
                             .size(100)
                             .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
                         )
@@ -391,7 +447,7 @@ public class ElasticManager {
 
   public Map<String, Long> getCategoryAggregation() throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
-            .index("calamity-write")
+            .index("calamity-read")
             .aggregations("카테고리_집계", t -> t
                 .terms(term -> term
                     .field("category.keyword")
@@ -411,6 +467,69 @@ public class ElasticManager {
             (a, b) -> b,
             LinkedHashMap::new
         ));
+  }
+
+  public List<AggregationDto> getYearAggregation(String year) throws IOException {
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-read")
+            .size(0)
+            .query(q -> q
+                .range(r -> r
+                    .field("createdAt")
+                    .gte(JsonData.of(year + "-01-01"))
+                    .lte(JsonData.of(year + "-12-31"))))
+            .aggregations("달_집계", a -> a
+                .dateHistogram(h -> h
+                    .field("createdAt")
+                    .calendarInterval(CalendarInterval.Month)
+                    .format("yyyy-MM")
+                    .minDocCount(1)
+                    .extendedBounds(eb -> eb
+                        .min(FieldDateMath.of(f -> f.expr(year + "-01")))
+                        .max(FieldDateMath.of(f -> f.expr(year + "-12")))
+                    )))
+        , Void.class);
+
+    return response.aggregations().get("달_집계")
+        .dateHistogram()
+        .buckets()
+        .array()
+        .stream()
+        .map(m -> new AggregationDto(m.keyAsString(), m.docCount()))
+        .collect(Collectors.toList());
+  }
+
+  public List<AggregationDto> getMonthAggregation(String yearMonth) throws IOException {
+    String minDate = yearMonth + "-01";
+    String maxDate = LocalDate.parse(minDate).with(TemporalAdjusters.lastDayOfMonth()).toString();
+
+    SearchResponse<Void> response = client.search(sr -> sr
+            .index("calamity-read")
+            .size(0)
+            .query(q -> q
+                .range(r -> r
+                    .field("createdAt")
+                    .gte(JsonData.of(minDate))
+                    .lte(JsonData.of(maxDate))))
+            .aggregations("달_집계", a -> a
+                .dateHistogram(h -> h
+                    .field("createdAt")
+                    .calendarInterval(CalendarInterval.Day)
+                    .format("yyyy-MM-dd")
+                    .minDocCount(1)
+                    .extendedBounds(eb -> eb
+                        .min(FieldDateMath.of(f -> f.expr(minDate)))
+                        .max(FieldDateMath.of(f -> f.expr(maxDate)))
+                    )))
+        , Void.class);
+
+    return response.aggregations().get("달_집계")
+        .dateHistogram()
+        .buckets()
+        .array()
+        .stream()
+        .map(m -> new AggregationDto(m.keyAsString(), m.docCount()))
+        .collect(Collectors.toList());
   }
 
   public List<CalamityDocument> getRegionList() throws IOException {
@@ -452,12 +571,35 @@ public class ElasticManager {
     List<Query> mustQueries = new ArrayList<>();
 
     if (dto.getMessage() != null) {
-      mustQueries.add(Query.of(q -> q.match(m -> m.field("message").query(dto.getMessage()))));
+      mustQueries.add(
+          Query.of(q -> q.fuzzy(f -> f
+              .field("message")
+              .value(dto.getMessage())
+              .fuzziness("auto")
+          ))
+      );
     }
 
-    if (dto.getRegion() != null) {
-      mustQueries.add(Query.of(q -> q.match(m -> m.field("region").query(dto.getRegion())
-          .minimumShouldMatch("3"))));
+    if (dto.getSido() != null) {
+      mustQueries.add(Query.of(q -> q
+          .nested(n -> n
+              .path("regions")
+              .query(nq -> nq
+                  .match(m -> m.field("regions.sido").query(dto.getSido()))
+              )
+          )
+      ));
+    }
+
+    if (dto.getSigungu() != null) {
+      mustQueries.add(Query.of(q -> q
+          .nested(n -> n
+              .path("regions")
+              .query(nq -> nq
+                  .match(m -> m.field("regions.sigungu").query(dto.getSigungu()))
+              )
+          )
+      ));
     }
 
     if (dto.getCategory() != null) {
