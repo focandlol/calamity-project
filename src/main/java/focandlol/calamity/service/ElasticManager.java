@@ -316,14 +316,14 @@ public class ElasticManager {
 //        ));
 //  }
 
-  public Map<String, Long> getRegionAggregation() throws IOException {
+  public List<AggregationDto> getRegionAggregation(String from, String to) throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
             .query(q -> q
                 .range(r -> r
                     .field("modifiedDate")
-                    .gte(JsonData.of("2025-03-01T00:00:00"))
-                    .lte(JsonData.of("2025-03-31T23:59:59"))
+                    .gte(JsonData.of(from + "T00:00:00"))
+                    .lte(JsonData.of(to + "T23:59:59"))
                 )
             )
             .aggregations("시도_집계", a -> a
@@ -342,14 +342,9 @@ public class ElasticManager {
         .buckets()
         .array()
         .stream()
-        .collect(Collectors.toMap(
-            bucket -> bucket.key().stringValue(),
-            StringTermsBucket::docCount,
-            (a, b) -> b,
-            LinkedHashMap::new
-        ));
+        .map(a -> new AggregationDto(a.key().stringValue(), a.docCount()))
+        .collect(Collectors.toList());
   }
-
 
 //  public Map<String, Long> getSigunguAggregation() throws IOException {
 //    SearchResponse<Void> response = client.search(sr -> sr
@@ -394,14 +389,15 @@ public class ElasticManager {
 //        ));
 //  }
 
-  public Map<String, Long> getSigunguAggregation() throws IOException {
+  public List<AggregationDto> getSigunguAggregation(String from, String to, String sido)
+      throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
             .query(q -> q
                 .range(r -> r
                     .field("modifiedDate")
-                    .gte(JsonData.of("2025-01-01T00:00:00"))
-                    .lte(JsonData.of("2025-04-30T23:59:59"))
+                    .gte(JsonData.of(from + "T00:00:00"))
+                    .lte(JsonData.of(to + "T23:59:59"))
                 )
             )
             .aggregations("regions_nested", a -> a
@@ -410,7 +406,7 @@ public class ElasticManager {
                     .filter(f -> f
                         .term(t -> t
                             .field("regions.sido.keyword")
-                            .value("서울특별시")
+                            .value(sido)
                         )
                     )
                     .aggregations("sigungu_agg", t -> t
@@ -437,17 +433,71 @@ public class ElasticManager {
         .buckets()
         .array()
         .stream()
-        .collect(Collectors.toMap(
-            bucket -> bucket.key().stringValue(),
-            StringTermsBucket::docCount,
-            (a, b) -> b,
-            LinkedHashMap::new
-        ));
+        .map(a -> new AggregationDto(a.key().stringValue(), a.docCount()))
+        .collect(Collectors.toList());
   }
 
-  public Map<String, Long> getCategoryAggregation() throws IOException {
+//  public Map<String, Long> getSigunguAggregation() throws IOException {
+//    SearchResponse<Void> response = client.search(sr -> sr
+//            .index("calamity-read")
+//            .query(q -> q
+//                .range(r -> r
+//                    .field("modifiedDate")
+//                    .gte(JsonData.of("2025-01-01T00:00:00"))
+//                    .lte(JsonData.of("2025-05-01T23:59:59"))
+//                )
+//            )
+//            .aggregations("regions_nested", a -> a
+//                .nested(n -> n.path("regions"))
+//                .aggregations("서울_시군구_필터", a2 -> a2
+//                    .filter(f -> f
+//                        .term(t -> t
+//                            .field("regions.sido.keyword")
+//                            .value("서울특별시")
+//                        )
+//                    )
+//                    .aggregations("sigungu_agg", t -> t
+//                        .terms(term -> term
+//                            .field("regions.sigungu.keyword")
+//                            .size(100)
+//                            .order(List.of(NamedValue.of("_count", SortOrder.Desc)))
+//                        )
+//                    )
+//                )
+//            ),
+//        Void.class
+//    );
+//
+//    return response.aggregations()
+//        .get("regions_nested")
+//        .nested()
+//        .aggregations()
+//        .get("서울_시군구_필터")
+//        .filter()
+//        .aggregations()
+//        .get("sigungu_agg")
+//        .sterms()
+//        .buckets()
+//        .array()
+//        .stream()
+//        .collect(Collectors.toMap(
+//            bucket -> bucket.key().stringValue(),
+//            StringTermsBucket::docCount,
+//            (a, b) -> b,
+//            LinkedHashMap::new
+//        ));
+//  }
+
+  public List<AggregationDto> getCategoryAggregation(String from, String to) throws IOException {
     SearchResponse<Void> response = client.search(sr -> sr
             .index("calamity-read")
+            .query(q -> q
+                .range(r -> r
+                    .field("modifiedDate")
+                    .gte(JsonData.of(from + "T00:00:00"))
+                    .lte(JsonData.of(to + "T23:59:59"))
+                )
+            )
             .aggregations("카테고리_집계", t -> t
                 .terms(term -> term
                     .field("category.keyword")
@@ -461,12 +511,8 @@ public class ElasticManager {
         .buckets()
         .array()
         .stream()
-        .collect(Collectors.toMap(
-            bucket -> bucket.key().stringValue(),
-            StringTermsBucket::docCount,
-            (a, b) -> b,
-            LinkedHashMap::new
-        ));
+        .map(a -> new AggregationDto(a.key().stringValue(), a.docCount()))
+        .collect(Collectors.toList());
   }
 
   public List<AggregationDto> getYearAggregation(String year) throws IOException {
