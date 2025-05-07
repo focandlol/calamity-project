@@ -38,27 +38,35 @@ public class CalamityController {
   }
 
   @PostMapping("/_template")
-  public void createTemplate(){
-    elasticManager.createTemplate("calamity","calamity-*","calamity-read1","calamity-write1");
+  public void createTemplate() {
+    elasticManager.createTemplate("calamity", "calamity-*", "calamity-read1", "calamity-write1");
   }
 
   @GetMapping("/region_aggregation")
-  public Map<String, Long> getRegionAggregation() throws IOException {
-    return elasticManager.getRegionAggregation();
+  public List<AggregationDto> getRegionAggregation(@RequestParam String from,
+      @RequestParam String to) throws IOException {
+    return elasticManager.getRegionAggregation(from, to);
   }
 
   @GetMapping("/category_aggregation")
-  public Map<String, Long> getCategoryAggregation() throws IOException {
-    return elasticManager.getCategoryAggregation();
+  public List<AggregationDto> getCategoryAggregation(@RequestParam String from,
+      @RequestParam String to) throws IOException {
+    return elasticManager.getCategoryAggregation(from, to);
   }
 
   @GetMapping("/region_sigungu_aggregation")
-  public Map<String, Long> getSigunguAggregation() throws IOException {
-    return elasticManager.getSigunguAggregation();
+  public List<AggregationDto> getSigunguAggregation(@RequestParam String from,
+      @RequestParam String to, @RequestParam String sido) throws IOException {
+    return elasticManager.getSigunguAggregation(from, to, sido);
   }
+//@GetMapping("/region_sigungu_aggregation")
+//public Map<String, Long> getSigunguAggregation() throws IOException {
+//  return elasticManager.getSigunguAggregation();
+//}
 
   @GetMapping("/region")
-  public List<CalamityListDto> getRegi(@RequestParam String region, Pageable pageable) throws IOException {
+  public List<CalamityListDto> getRegi(@RequestParam String region, Pageable pageable)
+      throws IOException {
     return elasticManager.getRegionListData(region, pageable);
   }
 
@@ -73,12 +81,13 @@ public class CalamityController {
   }
 
   @GetMapping("/calamity/{id}")
-  public CalamityDetailsDto getDetails(@PathVariable String id){
+  public CalamityDetailsDto getDetails(@PathVariable String id) {
     return elasticManager.getCalamityDetails(id);
   }
 
   @GetMapping("/calamity")
-  public Page<CalamityListDto> getCalamities(@ModelAttribute CalamitySearchDto dto, Pageable pageable)
+  public Page<CalamityListDto> getCalamities(@ModelAttribute CalamitySearchDto dto,
+      Pageable pageable)
       throws IOException {
     return elasticManager.search(dto, pageable);
   }
