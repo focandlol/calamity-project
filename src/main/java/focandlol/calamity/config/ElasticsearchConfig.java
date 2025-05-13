@@ -10,6 +10,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -39,18 +40,20 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
   @Value("${spring.elasticsearch.uris}")
   private String host;
 
-  @Value("${spring.elasticsearch.username}")
-  private String username;
-
-  @Value("${spring.elasticsearch.password}")
-  private String password;
+//  @Value("${spring.elasticsearch.username}")
+//  private String username;
+//
+//  @Value("${spring.elasticsearch.password}")
+//  private String password;
 
   @Override
   public ClientConfiguration clientConfiguration() {
     return ClientConfiguration.builder()
         .connectedTo(host)
-        .usingSsl(disableSslVerification(), allHostsValid()) // ssl 사용
-        .withBasicAuth(username, password)
+        .withConnectTimeout(Duration.ofSeconds(160))
+        .withSocketTimeout(Duration.ofSeconds(160))
+        //.usingSsl(disableSslVerification(), allHostsValid()) // ssl 사용
+        //.withBasicAuth(username, password)
         .build();
   }
 

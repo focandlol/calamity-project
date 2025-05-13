@@ -34,7 +34,7 @@ public class CalamityController {
 
   @PostMapping("/_doc")
   public void createCalamity() throws Exception {
-    elasticManager.createIndex("calamity-" + LocalDate.now());
+    elasticManager.createIndex("calamity-123" + LocalDate.now());
   }
 
   @PostMapping("/_template")
