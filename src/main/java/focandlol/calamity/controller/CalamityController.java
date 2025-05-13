@@ -91,4 +91,9 @@ public class CalamityController {
       throws IOException {
     return elasticManager.search(dto, pageable);
   }
+
+  @GetMapping("/test")
+  public String test(){
+    return "github actions com!";
+  }
 }
