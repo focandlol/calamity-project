@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>재난 검색 게시판</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+<div class="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-md">
+  <h1 class="text-2xl font-bold mb-6">재난/이슈 통합 검색</h1>
+
+  <!-- 검색 폼 -->
+  <form id="searchForm" class="grid grid-cols-2 gap-4 mb-6">
+    <input type="text" id="message" placeholder="키워드 (예: 화재)" class="p-2 border rounded" />
+    <input type="text" id="category" placeholder="카테고리 (예: 자연재해)" class="p-2 border rounded" />
+    <input type="text" id="sido" placeholder="시도 (예: 서울특별시)" class="p-2 border rounded" />
+    <input type="text" id="sigungu" placeholder="시군구 (예: 강남구)" class="p-2 border rounded" />
+    <input type="date" id="createdAtFrom" class="p-2 border rounded" />
+    <input type="date" id="createdAtTo" class="p-2 border rounded" />
+    <button type="submit" class="col-span-2 bg-blue-600 text-white p-2 rounded hover:bg-blue-700">검색</button>
+  </form>
+
+  <!-- 결과 목록 -->
+  <ul id="results" class="space-y-4"></ul>
+
+  <!-- 페이지네이션 -->
+  <div id="pagination" class="flex justify-center mt-6 space-x-2"></div>
+</div>
+
+<script>
+  const form = document.getElementById('searchForm');
+  const results = document.getElementById('results');
+  const pagination = document.getElementById('pagination');
+
+  let currentPage = 0;
+  const size = 10;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    currentPage = 0;
+    await fetchResults();
+  });
+
+  function buildQueryParams() {
+    const params = new URLSearchParams();
+
+    if (message.value.trim()) params.append('message', message.value.trim());
+    if (category.value.trim()) params.append('category', category.value.trim());
+    if (sido.value.trim()) params.append('sido', sido.value.trim());
+    if (sigungu.value.trim()) params.append('sigungu', sigungu.value.trim());
+    if (createdAtFrom.value) params.append('createdAtFrom', createdAtFrom.value);
+    if (createdAtTo.value) params.append('createdAtTo', createdAtTo.value);
+
+    params.append('page', currentPage);
+    params.append('size', size);
+
+    return params;
+  }
+
+  async function fetchResults() {
+    const params = buildQueryParams();
+    const res = await fetch(`/calamity?${params}`);
+    const data = await res.json();
+
+    results.innerHTML = '';
+    data.content.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'border rounded p-4 shadow hover:shadow-md transition';
+      li.innerHTML = `
+        <div class="text-sm text-gray-500">${item.modifiedDate}</div>
+        <div class="text-lg font-semibold">${item.region}</div>
+        <div class="text-blue-600">${item.category}</div>
+      `;
+      results.appendChild(li);
+    });
+
+    renderPagination(data.totalPages);
+  }
+
+  function renderPagination(totalPages) {
+    pagination.innerHTML = '';
+    for (let i = 0; i < totalPages; i++) {
+      const btn = document.createElement('button');
+      btn.className = `px-3 py-1 rounded border ${i === currentPage ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-100'}`;
+      btn.textContent = i + 1;
+      btn.onclick = () => {
+        currentPage = i;
+        fetchResults();
+      };
+      pagination.appendChild(btn);
+    }
+  }
+
+  // 초기 로딩
+  fetchResults();
+</script>
+</body>
+</html>

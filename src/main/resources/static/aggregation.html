@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>재난 통계 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f9fafb;
+      color: #333;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 40px;
+    }
+
+    .dashboard {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+
+    .inputs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background-color: #3b82f6;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #2563eb;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    @media (max-width: 900px) {
+      .row-2, .row-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>재난 통계 대시보드</h1>
+
+<div class="dashboard">
+
+  <!-- 1행: 월별 + 일별 -->
+  <div class="row-2">
+    <div class="card">
+      <h2>월별 집계 (Bar)</h2>
+      <div class="inputs">
+        <input type="text" id="yearInput" placeholder="예: 2025">
+        <button onclick="loadMonthData()">불러오기</button>
+      </div>
+      <canvas id="monthChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>일별 집계 (Line)</h2>
+      <div class="inputs">
+        <input type="text" id="monthInput" placeholder="예: 2025-05">
+        <button onclick="loadDayData()">불러오기</button>
+      </div>
+      <canvas id="dayChart"></canvas>
+    </div>
+  </div>
+
+  <!-- 2행: 시도, 시군구, 카테고리 -->
+  <div class="row-3">
+    <div class="card">
+      <h2>시도별 집계 (Doughnut)</h2>
+      <canvas id="regionChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>시군구별 집계 (Horizontal Bar)</h2>
+      <canvas id="sigunguChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>카테고리별 집계 (Polar Area)</h2>
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let monthChart, dayChart, regionChart, sigunguChart, categoryChart;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+  document.getElementById('yearInput').value = currentYear;
+  document.getElementById('monthInput').value = `${currentYear}-${currentMonth}`;
+
+  function getColors(count) {
+    const pleasantColors = [
+      '#7FB3FF', '#5CD6C0', '#FFA07A', '#FF90B3',
+      '#B388EB', '#F9D57A', '#FFB347', '#8CD790',
+      '#A890FE', '#FFD166', '#F17EB8', '#84D2F6'
+    ];
+    return Array.from({ length: count }, (_, i) => pleasantColors[i % pleasantColors.length]);
+  }
+
+  async function loadMonthData() {
+    const year = document.getElementById('yearInput').value;
+    const res = await fetch(`/month_aggregation?year=${year}`);
+    const data = await res.json();
+    const labels = data.map(d => d.key);
+    const counts = data.map(d => d.count);
+    updateChart('monthChart', labels, counts, '월별 발생 건수', 'bar', chart => monthChart = chart);
+  }
+
+  async function loadDayData() {
+    const yearMonth = document.getElementById('monthInput').value;
+    const res = await fetch(`/day_aggregation?yearMonth=${yearMonth}`);
+    const data = await res.json();
+    const labels = data.map(d => d.key);
+    const counts = data.map(d => d.count);
+    updateChart('dayChart', labels, counts, '일별 발생 건수', 'line', chart => dayChart = chart);
+  }
+
+  async function loadRegionData() {
+    const res = await fetch('/region_aggregation');
+    const data = await res.json();
+    const labels = Object.keys(data);
+    const counts = Object.values(data);
+    updateChart('regionChart', labels, counts, '시도별 발생 건수', 'doughnut', chart => regionChart = chart);
+  }
+
+  async function loadSigunguData() {
+    const res = await fetch('/region_sigungu_aggregation');
+    const data = await res.json();
+    const labels = Object.keys(data);
+    const counts = Object.values(data);
+    updateChart('sigunguChart', labels, counts, '시군구별 발생 건수', 'bar', chart => sigunguChart = chart, true);
+  }
+
+  async function loadCategoryData() {
+    const res = await fetch('/category_aggregation');
+    const data = await res.json();
+    const labels = Object.keys(data);
+    const counts = Object.values(data);
+    updateChart('categoryChart', labels, counts, '카테고리별 발생 건수', 'polarArea', chart => categoryChart = chart);
+  }
+
+  function updateChart(canvasId, labels, counts, labelName, type, assignChartFn, horizontal = false) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const colors = getColors(labels.length);
+
+    const chartMap = {
+      'monthChart': monthChart,
+      'dayChart': dayChart,
+      'regionChart': regionChart,
+      'sigunguChart': sigunguChart,
+      'categoryChart': categoryChart
+    };
+    const oldChart = chartMap[canvasId];
+    if (oldChart) oldChart.destroy();
+
+    const chart = new Chart(ctx, {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          label: labelName,
+          data: counts,
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1,
+          fill: type === 'line',
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        indexAxis: horizontal ? 'y' : 'x',
+        scales: (type === 'bar' || type === 'line') ? { y: { beginAtZero: true } } : {},
+        plugins: {
+          legend: {
+            display: type !== 'bar' || horizontal,
+            position: 'bottom'
+          }
+        }
+      }
+    });
+
+    assignChartFn(chart);
+  }
+
+  // 초기 로딩
+  loadMonthData();
+  loadDayData();
+  loadRegionData();
+  loadSigunguData();
+  loadCategoryData();
+</script>
+
+</body>
+</html>
+
