@@ -1,7 +1,7 @@
 package focandlol.calamity;
 
 //import focandlol.calamity.common.RedissonLock;
-import focandlol.calamity.dto.CalamityDocument;
+import focandlol.calamity.domain.CalamityDocument;
 import focandlol.calamity.dto.CalamityMessageDto;
 import focandlol.calamity.repository.CalamityRepository;
 import java.time.LocalDate;
@@ -33,9 +33,7 @@ public class FullIndexingScheduler {
   private static final String WRITE_ALIAS = "calamity-write";
   private static final String NEW_INDEX = "calamity-" + LocalDate.now();
 
-  //@Scheduled(fixedRate = 120000)
-  //@Scheduled(cron = "0 38 19 * * *")
-  //@RedissonLock(prefix = "indexing", leaseTime = -1)
+  @Scheduled(fixedRate = 120000)
   public void reindexAll() {
     log.info("full index start");
     createNewIndexWithAlias();

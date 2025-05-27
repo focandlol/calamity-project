@@ -1,7 +1,6 @@
 package focandlol.calamity.dto;
 
-import java.util.List;
-import java.util.Set;
+import focandlol.calamity.domain.CalamityDocument;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,7 +24,6 @@ public class CalamityListDto {
     return CalamityListDto.builder()
         .id(document.getId())
         .region(document.getRegion())
-        //.regions(document.getRegions())
         .category(document.getCategory())
         .modifiedDate(document.getModifiedDate())
         .build();

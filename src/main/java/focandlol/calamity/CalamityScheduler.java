@@ -6,7 +6,7 @@ package focandlol.calamity;
 //import com.fasterxml.jackson.databind.JsonNode;
 //import com.fasterxml.jackson.databind.ObjectMapper;
 //import focandlol.calamity.common.RedissonLock;
-//import focandlol.calamity.dto.CalamityDocument;
+//import focandlol.calamity.domain.CalamityDocument;
 //import focandlol.calamity.dto.CalamityMessageDto;
 //import focandlol.calamity.repository.CalamityRepository;
 //import java.io.IOException;

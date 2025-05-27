@@ -2,15 +2,10 @@ package focandlol.calamity.service;
 
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
-import co.elastic.clients.elasticsearch._types.aggregations.MultiBucketBase;
-import co.elastic.clients.elasticsearch._types.aggregations.TermsAggregation;
-import co.elastic.clients.json.JsonData;
 import co.elastic.clients.util.NamedValue;
-import focandlol.calamity.dto.CalamityDocument;
+import focandlol.calamity.domain.CalamityDocument;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +13,6 @@ import org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregatio
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.SearchPage;
 import org.springframework.data.elasticsearch.core.query.Query;
 
 import org.springframework.stereotype.Service;
@@ -81,7 +75,7 @@ public class ElasticReadService {
         .array()
         .stream()
         .filter(bucket -> bucket.key().stringValue().endsWith("시"))
-        //.sorted(Comparator.comparingLong(MultiBucketBase::docCount).reversed()) // ⬅️ 내림차순 정렬
+        //.sorted(Comparator.comparingLong(MultiBucketBase::docCount).reversed())
         .collect(Collectors.toMap(
             bucket -> bucket.key().stringValue(),
             stringTermsBucket -> stringTermsBucket.docCount(),

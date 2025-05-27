@@ -1,19 +1,17 @@
-package focandlol.calamity.dto;
+package focandlol.calamity.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import focandlol.calamity.dto.CalamityMessageDto;
+import focandlol.calamity.dto.Region;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.TypeAlias;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Highlight;
 
 @Document(indexName = "calamity-read")
 @Getter
