@@ -1,11 +1,24 @@
 package focandlol.calamity.service;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import focandlol.calamity.domain.Report;
+import focandlol.calamity.domain.ReportDocument;
 import focandlol.calamity.dto.CreateReportDto;
 import focandlol.calamity.dto.ReportDto;
 import focandlol.calamity.dto.UpdateReportDto;
 import focandlol.calamity.repository.ReportRepository;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.HighlightQuery;
+import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportService {
 
   private final ReportRepository reportRepository;
+  private final ElasticsearchOperations elasticsearchOperations;
 
   public Long create(CreateReportDto reportDto) {
     return reportRepository.save(reportDto.to()).getId();
@@ -41,5 +55,23 @@ public class ReportService {
         .orElseThrow(() -> new RuntimeException("can't find report with id: " + reportId));
 
     return ReportDto.from(report);
+  }
+
+  public List<String> titleAuto(String query) {
+    NativeQuery nativeQuery = NativeQuery.builder()
+        .withQuery(MultiMatchQuery.of(m -> m
+            .query(query)
+            .type(TextQueryType.BoolPrefix)
+            .fields("title.auto_complete", "title.auto_complete._2gram",
+                "title.auto_complete._3gram","title.auto_complete._index_prefix"))._toQuery())
+        .withPageable(PageRequest.of(0, 5))
+        .build();
+
+    SearchHits<ReportDocument> search = elasticsearchOperations.search(nativeQuery,
+        ReportDocument.class);
+
+    return search.getSearchHits().stream()
+        .map(hit -> hit.getContent().getTitle())
+        .collect(Collectors.toList());
   }
 }

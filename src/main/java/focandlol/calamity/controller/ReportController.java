@@ -6,6 +6,7 @@ import focandlol.calamity.dto.ReportDto;
 import focandlol.calamity.dto.UpdateReportDto;
 import focandlol.calamity.service.ReportService;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -47,6 +49,11 @@ public class ReportController {
   public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
     reportService.delete(reportId);
     return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/title/auto_complete")
+  public ResponseEntity<List<String>> getTitleAutoComplete(@RequestParam String query){
+    return ResponseEntity.ok(reportService.titleAuto(query));
   }
 
 }
