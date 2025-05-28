@@ -1,0 +1,26 @@
+{
+  "analysis":{
+    "analyzer":{
+      "report_title_analyzer":{
+        "char_filter":[],
+        "tokenizer":"nori_tokenizer",
+        "filter":["nori_part_of_speech","nori_readingform","lowercase"]
+      },
+      "report_content_analyzer":{
+        "char_filter":[],
+        "tokenizer":"nori_tokenizer",
+        "filter":["nori_part_of_speech","nori_readingform","lowercase"]
+      },
+      "report_address_analyzer":{
+        "char_filter":[],
+        "tokenizer":"nori_tokenizer",
+        "filter":["nori_part_of_speech","nori_readingform","lowercase"]
+      },
+      "report_category_analyzer":{
+        "char_filter":[],
+        "tokenizer":"nori_tokenizer",
+        "filter":["nori_part_of_speech","nori_readingform","lowercase"]
+      }
+    }
+  }
+}
