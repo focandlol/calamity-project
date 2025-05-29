@@ -3,14 +3,19 @@ package focandlol.calamity.controller;
 import focandlol.calamity.domain.Report;
 import focandlol.calamity.dto.CreateReportDto;
 import focandlol.calamity.dto.ReportDto;
+import focandlol.calamity.dto.ReportListDto;
+import focandlol.calamity.dto.ReportSearchDto;
 import focandlol.calamity.dto.UpdateReportDto;
 import focandlol.calamity.service.ReportService;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -27,7 +32,7 @@ public class ReportController {
   private final ReportService reportService;
 
   @GetMapping("{reportId}")
-  public ResponseEntity<ReportDto> getReport(@PathVariable Long reportId){
+  public ResponseEntity<ReportDto> getReport(@PathVariable Long reportId) {
     return ResponseEntity.ok(reportService.getReport(reportId));
   }
 
@@ -52,8 +57,14 @@ public class ReportController {
   }
 
   @GetMapping("/title/auto_complete")
-  public ResponseEntity<List<String>> getTitleAutoComplete(@RequestParam String query){
+  public ResponseEntity<List<String>> getTitleAutoComplete(@RequestParam String query) {
     return ResponseEntity.ok(reportService.titleAuto(query));
+  }
+
+  @GetMapping()
+  public ResponseEntity<Page<ReportListDto>> getReports(@ModelAttribute ReportSearchDto searchDto,
+      Pageable pageable) {
+    return ResponseEntity.ok(reportService.getReports(searchDto, pageable));
   }
 
 }
