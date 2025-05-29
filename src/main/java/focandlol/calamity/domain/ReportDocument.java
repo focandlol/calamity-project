@@ -22,7 +22,7 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 public class ReportDocument {
 
   @Id
-  private Long id;
+  private String id;
 
   @MultiField(mainField = @Field(type = FieldType.Text, analyzer = "report_title_analyzer"),
       otherFields = {
@@ -50,5 +50,18 @@ public class ReportDocument {
   private LocalDateTime createdAt;
 
   private LocalDateTime updatedAt;
+
+  public static ReportDocument from(Report report){
+    return ReportDocument.builder()
+        .id(report.getId().toString())
+        .title(report.getTitle())
+        .content(report.getContent())
+        .roadAddress(report.getRoadAddress())
+        .jibunAddress(report.getJibunAddress())
+        .category(report.getCategory())
+        .createdAt(report.getCreatedAt())
+        .updatedAt(report.getUpdatedAt())
+        .build();
+  }
 
 }

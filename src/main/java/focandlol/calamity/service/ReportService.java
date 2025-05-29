@@ -14,6 +14,7 @@ import focandlol.calamity.dto.ReportDto;
 import focandlol.calamity.dto.ReportListDto;
 import focandlol.calamity.dto.ReportSearchDto;
 import focandlol.calamity.dto.UpdateReportDto;
+import focandlol.calamity.repository.ReportDocumentRepository;
 import focandlol.calamity.repository.ReportRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +27,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.HighlightQuery;
-import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
-import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
-import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,10 +35,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReportService {
 
   private final ReportRepository reportRepository;
+  private final ReportDocumentRepository reportDocumentRepository;
   private final ElasticsearchOperations elasticsearchOperations;
 
   public Long create(CreateReportDto reportDto) {
-    return reportRepository.save(reportDto.to()).getId();
+    Report report = reportRepository.save(reportDto.to());
+
+    reportDocumentRepository.save(ReportDocument.from(report));
+
+    return report.getId();
   }
 
   @Transactional
@@ -54,11 +56,15 @@ public class ReportService {
     report.setContent(reportDto.getContent());
     report.setJibunAddress(reportDto.getJibunAddress());
     report.setRoadAddress(reportDto.getRoadAddress());
+
+    reportDocumentRepository.save(ReportDocument.from(report));
   }
 
 
   public void delete(Long reportId) {
     reportRepository.deleteById(reportId);
+
+    reportDocumentRepository.deleteById(reportId.toString());
   }
 
   public ReportDto getReport(Long reportId) {
