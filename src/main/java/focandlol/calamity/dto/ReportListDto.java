@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ReportListDto {
 
-  private Long id;
+  private String id;
 
   private String title;
 
