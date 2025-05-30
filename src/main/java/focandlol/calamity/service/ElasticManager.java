@@ -1,10 +1,13 @@
 package focandlol.calamity.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.Script;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
 import co.elastic.clients.elasticsearch._types.aggregations.FieldDateMath;
+import co.elastic.clients.elasticsearch._types.aggregations.ScriptedMetricAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.ScriptedMetricAggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.analysis.Analyzer;
@@ -48,6 +51,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.client.elc.Aggregation;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregation;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -56,6 +65,7 @@ public class ElasticManager {
 
   private final ElasticsearchClient client;
   private final CalamitySearchRepository calamityRepository;
+  private final ElasticsearchOperations elasticsearchOperations;
 
   public void createTemplate(String templateName, String indexPattern, String readAlias,
       String writeAlias) {
@@ -675,6 +685,83 @@ public class ElasticManager {
         .collect(Collectors.toList());
 
     return new PageImpl<>(content, pageable, totalElements);
+  }
+
+  public void adad(){
+    ScriptedMetricAggregation scriptedMetricAgg = ScriptedMetricAggregation.of(s -> s
+        .initScript(Script.of(script -> script.inline(i -> i
+            .lang("painless")
+            .source("state.sidoMap = new HashMap();")
+        )))
+        .mapScript(Script.of(script -> script.inline(i -> i
+            .lang("painless")
+            .source("""
+            if (doc['regionsSet'].size() != 0) {
+              Set sidosInDoc = new HashSet();
+              for (region in doc['regionsSet']) {
+                if (region != null) {
+                  String sido = region.splitOnToken(' ')[0];
+                  sidosInDoc.add(sido);
+                }
+              }
+              for (sido in sidosInDoc) {
+                if (state.sidoMap.containsKey(sido)) {
+                  state.sidoMap[sido].add(doc['id'].value);
+                } else {
+                  state.sidoMap[sido] = new HashSet();
+                  state.sidoMap[sido].add(doc['id'].value);
+                }
+              }
+            }
+        """)
+        )))
+        .combineScript(Script.of(script -> script.inline(i -> i
+            .lang("painless")
+            .source("return state.sidoMap;")
+        )))
+        .reduceScript(Script.of(script -> script.inline(i -> i
+            .lang("painless")
+            .source("""
+            Map finalMap = new HashMap();
+            for (stateMap in states) {
+              for (entry in stateMap.entrySet()) {
+                String sido = entry.getKey();
+                Set ids = entry.getValue();
+                if (finalMap.containsKey(sido)) {
+                  finalMap[sido].addAll(ids);
+                } else {
+                  finalMap[sido] = new HashSet(ids);
+                }
+              }
+            }
+            Map counts = new HashMap();
+            for (entry in finalMap.entrySet()) {
+              counts[entry.getKey()] = entry.getValue().size();
+            }
+            return counts;
+        """)
+        )))
+    );
+
+    NativeQuery nativeQuery = NativeQuery.builder()
+        .withAggregation("sido_group", scriptedMetricAgg._toAggregation())
+        .build();
+
+    SearchHits<CalamityDocument> searchHits = elasticsearchOperations.search(nativeQuery, CalamityDocument.class);
+
+    var elasticsearchAggregations = (ElasticsearchAggregations) searchHits.getAggregations();
+
+    JsonData value = elasticsearchAggregations.aggregations().get(0).aggregation()
+        .getAggregate()
+        .scriptedMetric()
+        .value();
+
+    @SuppressWarnings("unchecked")
+    Map<String, Integer> result = value.to(Map.class);
+
+    result.forEach((sido, count) -> {
+      System.out.println(sido + " : " + count);
+    });
   }
 
 }
