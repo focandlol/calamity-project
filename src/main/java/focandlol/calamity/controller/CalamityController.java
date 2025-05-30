@@ -96,4 +96,9 @@ public class CalamityController {
   public String test(){
     return "github actions com!";
   }
+
+  @GetMapping("/adad")
+  public void adad(){
+    elasticManager.adad();
+  }
 }
