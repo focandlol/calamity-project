@@ -1,20 +1,27 @@
-package focandlol.calamity.dto;
+package focandlol.calamity.domain;
 
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.InnerField;
+import org.springframework.data.elasticsearch.annotations.MultiField;
 
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class Region {
+
+  @MultiField(mainField = @Field(type = FieldType.Text, analyzer = "custom_nori"),
+      otherFields = @InnerField(suffix = "keyword", type = FieldType.Keyword))
   private String sido;
+
+  @MultiField(mainField = @Field(type = FieldType.Text, analyzer = "custom_nori"),
+      otherFields = @InnerField(suffix = "keyword", type = FieldType.Keyword))
   private String sigungu;
 
   @Override

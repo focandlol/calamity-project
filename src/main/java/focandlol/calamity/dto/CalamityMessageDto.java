@@ -1,9 +1,7 @@
 package focandlol.calamity.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import focandlol.calamity.domain.Region;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
