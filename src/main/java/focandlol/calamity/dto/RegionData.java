@@ -1,6 +1,6 @@
 package focandlol.calamity.dto;
 
-import java.util.List;
+import focandlol.calamity.domain.Region;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
