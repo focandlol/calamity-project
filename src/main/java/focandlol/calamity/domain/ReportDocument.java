@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -47,8 +48,10 @@ public class ReportDocument {
   )
   private String category;
 
+  @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)
   private LocalDateTime createdAt;
 
+  @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)
   private LocalDateTime updatedAt;
 
   public static ReportDocument from(Report report){
