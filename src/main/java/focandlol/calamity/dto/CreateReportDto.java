@@ -22,6 +22,7 @@ public class CreateReportDto {
   private String content;
 
   @NotBlank
+  @Size(min = 1, max = 20)
   private String category;
 
   @NotBlank
