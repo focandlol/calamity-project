@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>신고 작성</title>
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+</head>
+<body>
+<h1>신고 작성</h1>
+<form id="reportForm">
+  <div>
+    <label>제목:</label><br>
+    <input type="text" id="title" name="title" required maxlength="20">
+  </div>
+  <div>
+    <label>내용:</label><br>
+    <textarea id="content" name="content" required></textarea>
+  </div>
+  <div>
+    <label>카테고리:</label><br>
+    <input type="text" id="category" name="category" required maxlength="20">
+  </div>
+  <div>
+    <label>도로명 주소:</label><br>
+    <input type="text" id="roadAddress" name="roadAddress" readonly required>
+    <button type="button" onclick="openDaumPostcode()">주소 검색</button>
+  </div>
+  <div>
+    <label>지번 주소:</label><br>
+    <input type="text" id="jibunAddress" name="jibunAddress" readonly required>
+  </div>
+  <div style="margin-top: 20px;">
+    <button type="submit">신고 작성</button>
+  </div>
+</form>
+
+<script>
+  function openDaumPostcode() {
+    new daum.Postcode({
+      oncomplete: function(data) {
+        var roadAddress = data.roadAddress;
+        var jibunAddress = data.jibunAddress;
+        if (!jibunAddress) {
+          jibunAddress = data.autoJibunAddress;
+        }
+
+        document.getElementById('roadAddress').value = roadAddress;
+        document.getElementById('jibunAddress').value = jibunAddress;
+      }
+    }).open();
+  }
+
+  document.getElementById('reportForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const formData = {
+      title: document.getElementById('title').value,
+      content: document.getElementById('content').value,
+      category: document.getElementById('category').value,
+      roadAddress: document.getElementById('roadAddress').value,
+      jibunAddress: document.getElementById('jibunAddress').value
+    };
+
+    fetch('/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    })
+    .then(response => {
+      if (response.status === 201) {
+        return response.headers.get('Location');
+      } else {
+        throw new Error('신고 작성 실패');
+      }
+    })
+    .then(location => {
+      alert('신고가 성공적으로 등록되었습니다.');
+      window.location.href = location;
+    })
+    .catch(error => {
+      alert(error.message);
+    });
+  });
+</script>
+</body>
+</html>
